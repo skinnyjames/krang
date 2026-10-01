@@ -1,0 +1,94 @@
+#!/bin/sh
+# hk - open a Krang plugin from any shell.
+#
+#   hk WIDGET [ARGS...]
+#
+# The payload is the arguments joined by spaces, or stdin when something is
+# piped in. Whatever the plugin answers is printed on stdout, so it works in
+# pipelines:
+#
+#   ls | hk img | pbcopy
+#
+# Exit status: 0 answered, 1 cancelled, 2 could not ask.
+#
+# POSIX sh only (no bashisms), so it runs the same under bash, zsh, dash, ksh,
+# busybox ash, and is callable from fish, nushell, or pwsh on macOS/Linux.
+
+ESC=$(printf '\033')
+BEL=$(printf '\007')
+RS=$(printf '\036') # separates the cwd from the payload
+
+die() {
+  printf 'hk: %s\n' "$1" >&2
+  exit 2
+}
+
+[ $# -gt 0 ] || { echo "usage: hk WIDGET [ARGS...]" >&2; exit 2; }
+[ -n "$HOKUSAI_TOKEN" ] || die "not running inside Krang"
+[ -z "$SSH_CONNECTION" ] || die "only works in a local Krang shell"
+
+widget=$1
+shift
+
+payload="$*"
+if [ -z "$payload" ] && [ ! -t 0 ]; then
+  payload=$(cat)
+fi
+
+# GNU and newer macOS take -d, older macOS only -D
+if printf 'aGk=' | base64 -d >/dev/null 2>&1; then
+  hk_decode() { base64 -d; }
+else
+  hk_decode() { base64 -D; }
+fi
+hk_encode() { base64 | tr -d '\n'; }
+
+hk_id="$$-$(od -An -N4 -tu4 /dev/urandom | tr -d ' ')"
+hk_old=$(stty -g </dev/tty 2>/dev/null) || die "no terminal"
+
+# if we die before an answer, put the tty back and close the widget
+hk_abort() {
+  stty "$hk_old" </dev/tty 2>/dev/null
+  printf '%s]7777;%s;cancel;%s%s' "$ESC" "$HOKUSAI_TOKEN" "$hk_id" "$BEL" >/dev/tty 2>/dev/null
+}
+trap hk_abort EXIT
+trap 'exit 1' INT TERM HUP
+
+# no echo, and no line buffering: canonical mode caps a line at a few hundred
+# bytes on some systems, and the reply can be much longer than that
+stty -echo -icanon min 1 time 0 </dev/tty
+
+{
+  printf '%s]7777;%s;open;%s;%s;' "$ESC" "$HOKUSAI_TOKEN" "$hk_id" "$widget"
+  printf '%s%s%s' "$(pwd -P)" "$RS" "$payload" | hk_encode
+  printf '%s' "$BEL"
+} >/dev/tty
+
+# read until BEL. dd returns whatever one read() gives, so large replies
+# arrive over a few loops instead of one process per byte
+reply=
+while :; do
+  chunk=$(dd bs=65536 count=1 </dev/tty 2>/dev/null)
+  [ -n "$chunk" ] || break # tty gone
+  reply=$reply$chunk
+  case $reply in *"$BEL"*) break ;; esac
+done
+reply=${reply%%"$BEL"*}
+
+# answered: no abort needed any more
+trap - EXIT INT TERM HUP
+stty "$hk_old" </dev/tty 2>/dev/null
+
+case $reply in
+  *";$hk_id;result;"*)
+    printf '%s' "${reply##*;}" | hk_decode
+    printf '\n'
+    exit 0
+    ;;
+  *";$hk_id;unsupported"*)
+    die "no plugin named '$widget'"
+    ;;
+  *)
+    exit 1
+    ;;
+esac

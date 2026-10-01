@@ -1,0 +1,7 @@
+barista.lock
+vendor/
+term2/
+bin/
+platforms/
+build/
+.DS_Store

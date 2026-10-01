@@ -1,0 +1,2 @@
+conf.gem "../../mruby-pty"
+conf.gem mgem: "mruby-iijson"

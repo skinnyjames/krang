@@ -1,0 +1,17 @@
+---
+display:
+  background_focus_color: "158,69,133"
+  background_blur_color: "107,56,92"
+  text_focus_color: "245,245,245"
+  text_blur_color: "188,188,188"
+  scrollbar_color: "81,40,70"
+  scrollbar_wheel_color: "102,55,88"
+  selection_color: "48,94,96"
+  selection_to_color: "51,111,147"
+  dragger_focus_color: "201,114,200"
+  dragger_blur_color: "73,36,73"
+  window_padding: "8.0,8.0,8.0,8.0"
+  cursor_width: 5.0
+  cursor_color: "219,146,218"
+  font_size: 15
+
