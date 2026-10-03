@@ -64,7 +64,7 @@ Yeah for sure.  Don't run arbitrary plugins, especially from sources you don't t
 
 ## AI Usage
 
-This was my first real project that I revisited using an LLM.  It's not very big.
+This was my first real project that I [revisited](https://github.com/skinnyjames/trollio-console) using an LLM.  It's not very big.
 
 Although it generated different decisions than I would (sometimes for better, sometimes for worse), the code is readable and it was very helpful in teasing out the numerous cases with ANSI escapes, cross-platform edge cases, and the pty grid.  I also helped out :)
 
